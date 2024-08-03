@@ -1,0 +1,4 @@
+# NOTAM Mapper frontend
+
+Yay.
+
