@@ -42,15 +42,7 @@
 	// @ts-ignore
 	import * as turf from "@turf/turf";
 
-	let notamText = `!GPS 01/020 ZLC NAV GPS (MHRC GPS 24-02)(INCLUDING WAAS,GBAS, AND 
-ADS-B) MAY NOT BE AVBL WI A 372NM RADIUS CENTERED AT
-424006N1153225W(TWF266048) FL400-UNL,
-332NM RADIUS AT FL250,
-229NM RADIUS AT 10000FT,
-233NM RADIUS AT 4000FT AGL,
-193NM RADIUS AT 50FT AGL.
-DLY 1700-2000
-2401081700-2401122000`;
+	let notamText = "";
 	let notam: Partial<Notam> = {};
 	let map: maplibregl.Map | null = null;
 	let finishedRangeRings: RangeRing[] = [];
@@ -375,37 +367,41 @@ DLY 1700-2000
 	});
 </script>
 
-<div class="m-4">
-	<h1 class="text-xl text-red-500">NOTAM Mapper</h1>
-	<p class="mb-4 text-xs text-gray-400">
-		By <a class="underline" href="https://heavymeta.org/">John Wiseman</a>
-	</p>
-	<Textarea
-		class="mb-4"
-		rows="10"
-		placeholder="Paste NOTAM text here."
-		bind:value={notamText}
-	>
-		<div slot="footer" class="flex">
-			<Button
-				class="mr-4"
-				type="submit"
-				disabled={searchInProgress}
-				on:click={parse}>Map</Button
+<div class="m-4 flex flex-col h-screen">
+	<div class="flex-none">
+		<h1 class="text-xl text-red-500">NOTAM Mapper</h1>
+		<p class="mb-4 text-xs text-gray-400">
+			By <a class="underline" href="https://heavymeta.org/"
+				>John Wiseman</a
 			>
-			{#if searchInProgress}
-				<Spinner class="mt-1 mr-4" />
-			{/if}
-			{#if geoJsonObjs.length > 0}
+		</p>
+		<Textarea
+			class="mb-4"
+			rows="10"
+			placeholder="Paste NOTAM text here."
+			bind:value={notamText}
+		>
+			<div slot="footer" class="flex">
 				<Button
-					type="button"
+					class="mr-4"
+					type="submit"
 					disabled={searchInProgress}
-					on:click={downloadKml}>Download KML</Button
+					on:click={parse}>Map</Button
 				>
-			{/if}
-		</div>
-	</Textarea>
-	<div class="flex" style="height: 600px;">
+				{#if searchInProgress}
+					<Spinner class="mt-1 mr-4" />
+				{/if}
+				{#if geoJsonObjs.length > 0}
+					<Button
+						type="button"
+						disabled={searchInProgress}
+						on:click={downloadKml}>Download KML</Button
+					>
+				{/if}
+			</div>
+		</Textarea>
+	</div>
+	<div class="flex flex-grow overflow-hidden">
 		<div class="w-1/2 overflow-y-auto pr-4">
 			<div class="dark:text-green-400">
 				<p>
@@ -507,13 +503,15 @@ DLY 1700-2000
 			</div>
 		</div>
 		<div class="w-1/2 pl-4">
-			<div id="map"></div>
+			<div id="map" class="h-full"></div>
 		</div>
 	</div>
 </div>
 
 <style>
-	#map {
+	:global(html, body) {
 		height: 100%;
+		margin: 0;
+		padding: 0;
 	}
 </style>
