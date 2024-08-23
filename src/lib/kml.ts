@@ -41,13 +41,13 @@ export function geoJsonsToKml(geoJsons: any[]): string {
         ["Document", {},
             ["Style", { id: "polygonStyle" },
                 ["PolyStyle", {},
-                    ["color", {}, "190000ff"],  // Red with alpha 0.3 (4D in hex)
+                    ["color", {}, "190000ff"],  // Red with alpha 0.1 (19 in hex)
                     ["outline", {}, "1"]
                 ]
             ],
             ["Style", { id: "lineStyle" },
                 ["LineStyle", {},
-                    ["color", {}, "ff0000ff"],  // Red (FF in hex)
+                    ["color", {}, "ff0000ff"],  // Red
                     ["width", {}, "2"]
                 ]
             ],
