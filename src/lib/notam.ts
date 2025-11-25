@@ -79,6 +79,25 @@ export function polygonIsComplete(polygon: Partial<Polygon>): boolean {
     return first.lat === last.lat && first.lon === last.lon;
 }
 
+export function completePolygon(polygon: Polygon): Polygon {
+    // If coordinates are null, undefined, or empty, return the polygon as-is
+    if (!polygon.coordinates || polygon.coordinates.length === 0) {
+        return polygon;
+    }
+
+    // If the polygon is already complete, return it as-is
+    if (polygonIsComplete(polygon)) {
+        return polygon;
+    }
+
+    // Complete the polygon by connecting the first and last coordinates
+    const first = polygon.coordinates[0];
+    return {
+        ...polygon,
+        coordinates: [...polygon.coordinates, { lat: first.lat, lon: first.lon }]
+    };
+}
+
 export function polygonsAreEqual(a: Polygon, b: Polygon): boolean {
     if (a.coordinates.length !== b.coordinates.length) return false;
     for (let i = 0; i < a.coordinates.length; i++) {
@@ -88,31 +107,139 @@ export function polygonsAreEqual(a: Polygon, b: Polygon): boolean {
 }
 
 export function parseCoords(coords: string): [number, number] {
-    /** Converts a string like '422750N1154403W' to a decimal lon,lat like
-[-115.734, 42.463]. */
+    /**
+     * Parse NOTAM/NAVAREA-style coordinates in any of these forms:
+     *
+     *   1) "422750N1154403W" or "422750N 1154403W"  (DDMMSSH DDDMMSSH)
+     *   2) "24-13.51N 067-06.78E"                  (DD-MM.mmH DDD-MM.mmH)
+     *   3) "41.67234 12.32"                        (decimal degrees, lat lon)
+     *
+     * Returns [lon, lat] as decimal degrees.
+     */
+    let s = coords.trim().toUpperCase().replace(/,/g, " ");
+    const tokens = s.split(/\s+/).filter(Boolean);
 
-    let lat: number =
-        parseInt(coords.slice(0, 2)) +
-        parseInt(coords.slice(2, 4)) / 60 +
-        parseInt(coords.slice(4, 6)) / 3600;
-    let lon: number =
-        parseInt(coords.slice(7, 10)) +
-        parseInt(coords.slice(10, 12)) / 60 +
-        parseInt(coords.slice(12, 14)) / 3600;
-
-    if (coords[6] === 'S') {
-        lat = -lat;
+    // Case 3: decimal degrees, lat lon (no hemisphere letters).
+    if (
+        tokens.length === 2 &&
+        tokens.every(t => /^[+-]?\d+(\.\d+)?$/.test(t))
+    ) {
+        const lat = parseFloat(tokens[0]);
+        const lon = parseFloat(tokens[1]);
+        return [lon, lat];
     }
-    if (coords[14] === 'W') {
-        lon = -lon;
+
+    let latToken: string;
+    let lonToken: string;
+
+    if (tokens.length === 1) {
+        // Concatenated, e.g. "422750N1154403W"
+        const t = tokens[0];
+
+        const nsIdx = t.search(/[NS]/);
+        if (nsIdx === -1) {
+            throw new Error(`Could not find N/S hemisphere in ${coords}`);
+        }
+        latToken = t.slice(0, nsIdx + 1);
+
+        const rest = t.slice(nsIdx + 1);
+        const ewIdx = rest.search(/[EW]/);
+        if (ewIdx === -1) {
+            throw new Error(`Could not find E/W hemisphere in ${coords}`);
+        }
+        lonToken = rest.slice(0, ewIdx + 1);
+    } else if (tokens.length === 2) {
+        // Separated with hemisphere, e.g. "24-13.51N 067-06.78E"
+        [latToken, lonToken] = tokens;
+    } else {
+        throw new Error(`Unexpected coordinate format: ${coords}`);
     }
 
+    const lat = parseComponent(latToken);
+    const lon = parseComponent(lonToken);
+    console.log(`Parsed ${coords} to ${lon}, ${lat}`);
     return [lon, lat];
+}
+
+function parseComponent(token: string): number {
+    /**
+     * Parse a single latitude/longitude component with hemisphere, e.g.:
+     *
+     *   "422750N"    -> 42°27'50" N
+     *   "1154403W"   -> 115°44'03" W
+     *   "24-13.51N"  -> 24°13.51' N
+     *   "067-06.78E" -> 67°06.78' E
+     *
+     * Returns signed decimal degrees.
+     */
+    token = token.trim().toUpperCase();
+    if (!token) {
+        throw new Error("Empty coordinate component");
+    }
+
+    const hemi = token[token.length - 1];
+    if (!/[NSEW]/.test(hemi)) {
+        throw new Error(`Missing hemisphere in ${token}`);
+    }
+    const body = token.slice(0, -1);
+
+    let deg: number;
+    let minutes: number;
+    let seconds = 0;
+
+    if (body.includes("-")) {
+        // Degrees + decimal minutes: DD-MM.mm or DDD-MM.mm
+        const [degStr, minStr] = body.split("-", 2);
+        deg = parseInt(degStr, 10);
+        minutes = parseFloat(minStr);
+    } else {
+        // Compact DMS: DDMMSS / DDDMMSS or DDMM / DDDMM (no seconds)
+        const len = body.length;
+        if (len !== 4 && len !== 5 && len !== 6 && len !== 7) {
+            throw new Error(`Unexpected DMS length for ${token}`);
+        }
+
+        let degStr: string;
+        let minStr: string;
+        let secStr: string;
+
+        if (len === 4) {
+            // DDMM -> seconds = 0
+            degStr = body.slice(0, 2);
+            minStr = body.slice(2, 4);
+            secStr = "0";
+        } else if (len === 5) {
+            // DDDMM -> seconds = 0
+            degStr = body.slice(0, 3);
+            minStr = body.slice(3, 5);
+            secStr = "0";
+        } else if (len === 6) {
+            // DDMMSS
+            degStr = body.slice(0, 2);
+            minStr = body.slice(2, 4);
+            secStr = body.slice(4, 6);
+        } else {
+            // 7: DDDMMSS
+            degStr = body.slice(0, 3);
+            minStr = body.slice(3, 5);
+            secStr = body.slice(5, 7);
+        }
+
+        deg = parseInt(degStr, 10);
+        minutes = parseInt(minStr, 10);
+        seconds = parseInt(secStr, 10);
+    }
+
+    let value = deg + minutes / 60 + seconds / 3600;
+    if (hemi === "S" || hemi === "W") {
+        value = -value;
+    }
+    return value;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function polygonToGeoJSON(polygon: Polygon): any {
-    const coordinates = polygon.coordinates.map((coord) => parseCoords(coord.lat + coord.lon));
+    const coordinates = polygon.coordinates.map((coord) => parseCoords(coord.lat + ' ' + coord.lon));
     return {
         type: 'Feature',
         properties: {},

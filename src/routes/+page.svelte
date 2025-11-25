@@ -2,6 +2,7 @@
 	import { geoJsonsToKml } from "$lib/kml";
 	import {
 		altitudeIsComplete,
+		completePolygon,
 		parseCoords,
 		polygonIsComplete,
 		polygonToGeoJSON,
@@ -59,6 +60,7 @@
 		let newPolygons = [];
 		for (const polygon of notam.polygons) {
 			if (!polygonIsComplete(polygon)) {
+				console.log("Polygon is not complete:", polygon);
 				continue;
 			}
 			if (!finishedPolygons.find((p) => polygonsAreEqual(p, polygon))) {
@@ -132,7 +134,7 @@
 		// Add any rangeRings in newRangeRings to the map. Use turf.circle to create a GeoJSON circle.
 		for (const rangeRing of newRangeRings) {
 			const [lon, lat] = parseCoords(
-				rangeRing.center.lat + rangeRing.center.lon,
+				rangeRing.center.lat + " " + rangeRing.center.lon,
 			);
 			const radiusMiles = rangeRing.radiusNm * 1.15078;
 			const circle = turf.circle([lon, lat], radiusMiles, {
@@ -326,6 +328,16 @@
 				}
 			}
 			resetMap();
+			// Complete any incomplete polygons before final processing
+			if (notam.polygons) {
+				notam.polygons = notam.polygons.map((polygon) => {
+					if (!polygonIsComplete(polygon)) {
+						console.log("Completing incomplete polygon:", polygon);
+						return completePolygon(polygon);
+					}
+					return polygon;
+				});
+			}
 			checkRangeRings();
 			checkPolygons();
 			notam = notam;
