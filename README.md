@@ -35,3 +35,11 @@ To build and run in production mode:
 pnpm build
 node build
 ```
+
+To deploy:
+
+```bash
+tar cf deploy.tar .svelte-kit/ app.pcss  captain-definition Dockerfile package-lock.json package.json pnpm-lock.yaml postcss.config.cjs src static svelte.config.js tailwind.config.ts tsconfig.json vite.config.ts
+```
+
+Then deploy the tarball to CapRover.
